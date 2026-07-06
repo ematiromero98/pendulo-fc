@@ -1,0 +1,7 @@
+# Backups exportados desde la app
+pendulo_backup_*.json
+
+# Sistema
+Thumbs.db
+.DS_Store
+desktop.ini
