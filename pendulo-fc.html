@@ -488,24 +488,50 @@ function seed(){
       { id:'t_chaja',   name:'CHAJA FC',   mine:false, players:[] },
     ],
     lineups: [],   // {id,teamId,name,positions:[{playerId,x,y}],ts}
-    matches: [],   // see openMatchModal
+    matches: [ fecha1Match() ],
+    // Base de la tabla: Pendulo y Blue Label en cero porque su Fecha 1 ya es un partido cargado.
     standings: [
-      {name:'El Expreso',    pj:1,v:1,d:0,gf:8,gc:4},
-      {name:'Crystal Pajas', pj:1,v:1,d:0,gf:8,gc:7},
-      {name:'Pendulo FC',    pj:1,v:1,d:0,gf:3,gc:2},
-      {name:'70/30',         pj:1,v:0,d:1,gf:7,gc:8},
-      {name:'Blue Label',    pj:1,v:0,d:1,gf:2,gc:3},
-      {name:'Chaja FC',      pj:1,v:0,d:1,gf:4,gc:8},
+      {name:'El Expreso',    pj:1,v:1,e:0,d:0,gf:8,gc:4},
+      {name:'Crystal Pajas', pj:1,v:1,e:0,d:0,gf:8,gc:7},
+      {name:'Pendulo FC',    pj:0,v:0,e:0,d:0,gf:0,gc:0},
+      {name:'70/30',         pj:1,v:0,e:0,d:1,gf:7,gc:8},
+      {name:'Blue Label',    pj:0,v:0,e:0,d:0,gf:0,gc:0},
+      {name:'Chaja FC',      pj:1,v:0,e:0,d:1,gf:4,gc:8},
     ],
     fixture: [
-      {fecha:1, rival:'—',           home:true,  time:'FINALIZADA', gf:3, gc:2, done:true},
+      {fecha:1, rival:'BLUE LABEL',  home:true,  time:'FINALIZADA', gf:3, gc:2, done:true},
       {fecha:2, rival:'EL EXPRESO',  home:false, time:'19:00', done:false},
       {fecha:3, rival:'CHAJA FC',    home:true,  time:'A confirmar', done:false},
     ],
+    _v: 1,
   };
 }
+// Partido de la Fecha 1: Pendulo 3-2 Blue Label (2 goles Boschini, 1 Digifico)
+function fecha1Match(){
+  return { id:'m_f1', fecha:1, date:'', rivalId:'t_blue', home:true,
+    ourScore:3, rivalScore:2,
+    events:[
+      {id:uid('e'),minute:0,type:'goal',playerId:'p9', assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p9', assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p23',assistId:null},
+    ],
+    starters:[], called:[], subs:[], ratings:{}, finished:true };
+}
+// Migraciones sobre datos ya guardados (no borra nada del usuario)
+function migrate(d){
+  if(!d._v){
+    (d.standings||[]).forEach(s=>{ const n=s.name.toLowerCase();
+      if(n.includes('pendulo')||n.includes('blue')){ s.pj=0;s.v=0;s.e=0;s.d=0;s.gf=0;s.gc=0; } });
+    d.matches=d.matches||[];
+    if(!d.matches.some(m=>m.id==='m_f1'||m.fecha===1)) d.matches.push(fecha1Match());
+    (d.fixture||[]).forEach(f=>{ if(f.fecha===1 && (!f.rival||f.rival==='—')){ f.rival='BLUE LABEL'; f.home=true; } });
+    d._v=1;
+    localStorage.setItem(LS_KEY, JSON.stringify(d));
+  }
+  return d;
+}
 let S = load();
-function load(){ try{ const d=JSON.parse(localStorage.getItem(LS_KEY)); return d && d.teams ? d : seed(); }catch(e){ return seed(); } }
+function load(){ try{ const d=JSON.parse(localStorage.getItem(LS_KEY)); return d && d.teams ? migrate(d) : seed(); }catch(e){ return seed(); } }
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(S)); }
 function uid(p){ return p + Math.random().toString(36).slice(2,8); }
 function team(id){ return S.teams.find(t=>t.id===id); }
