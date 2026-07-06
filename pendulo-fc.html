@@ -430,14 +430,15 @@
 <section class="view" id="view-torneo">
   <div class="card">
     <h2>Tabla de posiciones — Fase regular</h2>
-    <div class="sub">Datos de la Liga La Barraca. Podés editarlos a mano tras cada fecha.</div>
+    <div class="sub">Se actualiza sola con los partidos que cargás. Podés ajustar los valores base a mano.</div>
     <div style="overflow-x:auto">
       <table id="standingsTable">
-        <thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>V</th><th>D</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th></tr></thead>
+        <thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div class="hint">Los 4 mejores clasifican a la Copa La Barraca.</div>
+    <button class="btn sm grey" style="margin-top:12px" onclick="openStandingsModal()">✎ Ajustar valores base</button>
+    <div class="hint">Cada partido que cargás en <b>Partidos</b> suma a Pendulo y a su rival. Los partidos entre otros equipos (que no juega Pendulo) los ajustás a mano acá. Los 4 mejores clasifican a la Copa La Barraca.</div>
   </div>
   <div class="card">
     <h2>Fixture Pendulo FC</h2>
@@ -1445,21 +1446,38 @@ function renderCompare(){
 /* ============================================================
    TORNEO
 ============================================================ */
+// Tabla = valores base (editables) + partidos cargados (Pendulo y su rival)
+function computeStandings(){
+  const rows=S.standings.map(s=>({name:s.name, pj:s.pj||0, v:s.v||0, e:s.e||0, d:s.d||0, gf:s.gf||0, gc:s.gc||0}));
+  const byName=n=>rows.find(r=>r.name.toLowerCase()===String(n).toLowerCase());
+  const add=(row,gf,gc)=>{ if(!row)return; row.pj++; row.gf+=gf; row.gc+=gc; if(gf>gc)row.v++; else if(gf<gc)row.d++; else row.e++; };
+  const pend=rows.find(r=>r.name.toLowerCase().includes('pendulo'));
+  S.matches.forEach(m=>{
+    add(pend, m.ourScore, m.rivalScore);
+    const rv=team(m.rivalId);
+    if(rv){ let rr=byName(rv.name); if(!rr){ rr={name:rv.name,pj:0,v:0,e:0,d:0,gf:0,gc:0}; rows.push(rr); } add(rr, m.rivalScore, m.ourScore); }
+  });
+  return rows.map(r=>({...r, dg:r.gf-r.gc, pts:r.v*3+r.e}))
+    .sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf||a.name.localeCompare(b.name));
+}
 function renderTorneo(){
-  const t=S.standings.map(s=>({...s,dg:s.gf-s.gc,pts:s.v*3})).sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf);
+  const t=computeStandings();
   const tb=document.querySelector('#standingsTable tbody'); tb.innerHTML='';
   t.forEach((s,i)=>{
     const mine=s.name.toLowerCase().includes('pendulo');
     const tr=document.createElement('tr'); if(mine)tr.className='mine-hl';
     const q=i<4?'<span style="color:var(--green2)">●</span>':'';
     tr.innerHTML=`<td><div class="tag-standing">${q}${i+1}</div></td><td><b>${mine?logoTag(22):''}${s.name}</b></td>
-      <td>${s.pj}</td><td>${s.v}</td><td>${s.d}</td><td>${s.gf}</td><td>${s.gc}</td>
+      <td>${s.pj}</td><td>${s.v}</td><td>${s.e}</td><td>${s.d}</td><td>${s.gf}</td><td>${s.gc}</td>
       <td>${s.dg>0?'+':''}${s.dg}</td><td><b style="color:var(--gold-soft)">${s.pts}</b></td>`;
     tb.appendChild(tr);
   });
   const fx=document.getElementById('fixtureList');
-  fx.innerHTML=S.fixture.sort((a,b)=>a.fecha-b.fecha).map(f=>{
-    const res=f.done?`<span class="score" style="font-size:18px">${f.home?f.gf+' - '+f.gc:f.gc+' - '+f.gf}</span>`
+  fx.innerHTML=S.fixture.slice().sort((a,b)=>a.fecha-b.fecha).map(f=>{
+    const mm=S.matches.find(x=>x.fecha===f.fecha);       // partido cargado para esa fecha
+    const done = mm ? true : f.done;
+    const gfx = mm ? mm.ourScore : f.gf, gcx = mm ? mm.rivalScore : f.gc;
+    const res= done?`<span class="score" style="font-size:18px">${f.home?gfx+' - '+gcx:gcx+' - '+gfx}</span>`
       : `<span class="pill hab">${f.time}</span>`;
     const vs = f.home?`<b>${logoTag(20)}PENDULO FC</b> <span style="color:var(--muted)">vs</span> ${f.rival}`
                      :`${f.rival} <span style="color:var(--muted)">vs</span> <b>${logoTag(20)}PENDULO FC</b>`;
@@ -1467,6 +1485,27 @@ function renderTorneo(){
       <span class="pill gold">Fecha ${f.fecha}</span><span class="teams" style="font-size:14px">${vs}</span>
       <div style="flex:1"></div>${res}</div></div>`;
   }).join('');
+}
+function openStandingsModal(){
+  const rowsHtml=S.standings.map((s,i)=>`
+    <tr><td style="padding:4px 6px"><b style="font-size:12px">${s.name}</b></td>
+      ${['pj','v','e','d','gf','gc'].map(k=>`<td style="padding:2px"><input id="st_${i}_${k}" type="number" value="${s[k]||0}" style="width:52px;padding:5px;text-align:center"></td>`).join('')}
+    </tr>`).join('');
+  showModal(`
+    <h3>Ajustar valores base de la tabla</h3>
+    <div class="hint" style="margin:0 0 10px">Estos son los puntos “de arranque” (Fecha 1 y partidos entre equipos que Pendulo no juega). Los partidos que cargás en <b>Partidos</b> se suman automáticamente encima.</div>
+    <div style="max-height:56vh;overflow:auto">
+      <table style="font-size:12px"><thead><tr><th></th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th></tr></thead>
+      <tbody>${rowsHtml}</tbody></table>
+    </div>
+    <div class="foot"><button class="btn grey" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="saveStandings()">Guardar</button></div>`);
+}
+function saveStandings(){
+  S.standings.forEach((s,i)=>{
+    ['pj','v','e','d','gf','gc'].forEach(k=>{ s[k]=parseInt(document.getElementById('st_'+i+'_'+k).value)||0; });
+  });
+  save(); closeModal(); renderTorneo(); toast('Tabla actualizada ✓');
 }
 function openFixtureModal(){
   const rivals=S.teams.filter(t=>!t.mine);
