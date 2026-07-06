@@ -1,0 +1,10 @@
+# Configuración de Netlify — sitio estático, sin build.
+[build]
+  publish = "."
+  command = ""
+
+# La raíz sirve la app directamente (sin redirección visible).
+[[redirects]]
+  from = "/"
+  to = "/pendulo-fc.html"
+  status = 200
