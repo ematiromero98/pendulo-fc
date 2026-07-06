@@ -226,6 +226,7 @@
   .msummary .res{font-size:22px;font-weight:900;color:var(--gold-soft)}
   .chip{display:inline-block;background:#16161c;border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12px;margin:2px 3px 0 0}
   .form-chip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;font-weight:800;font-size:12px;margin-right:5px;color:#fff}
+  .form-mini{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;font-weight:800;font-size:9px;margin-right:2px;color:#fff}
   .form-V{background:var(--green2)} .form-E{background:#8a7a1e} .form-D{background:var(--red)}
   .cmp-head{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;text-align:center;margin-bottom:10px}
   .cmp-player{display:flex;flex-direction:column;align-items:center;gap:5px;font-weight:800;font-size:13px}
@@ -433,7 +434,7 @@
     <div class="sub">Se actualiza sola con los partidos que cargás. Podés ajustar los valores base a mano.</div>
     <div style="overflow-x:auto">
       <table id="standingsTable">
-        <thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th></tr></thead>
+        <thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th><th>Últimos</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1448,14 +1449,16 @@ function renderCompare(){
 ============================================================ */
 // Tabla = valores base (editables) + partidos cargados (Pendulo y su rival)
 function computeStandings(){
-  const rows=S.standings.map(s=>({name:s.name, pj:s.pj||0, v:s.v||0, e:s.e||0, d:s.d||0, gf:s.gf||0, gc:s.gc||0}));
+  const rows=S.standings.map(s=>({name:s.name, pj:s.pj||0, v:s.v||0, e:s.e||0, d:s.d||0, gf:s.gf||0, gc:s.gc||0, form:[]}));
   const byName=n=>rows.find(r=>r.name.toLowerCase()===String(n).toLowerCase());
-  const add=(row,gf,gc)=>{ if(!row)return; row.pj++; row.gf+=gf; row.gc+=gc; if(gf>gc)row.v++; else if(gf<gc)row.d++; else row.e++; };
+  const add=(row,gf,gc)=>{ if(!row)return; row.pj++; row.gf+=gf; row.gc+=gc;
+    const res=gf>gc?'V':gf<gc?'D':'E'; if(res==='V')row.v++; else if(res==='D')row.d++; else row.e++; row.form.push(res); };
   const pend=rows.find(r=>r.name.toLowerCase().includes('pendulo'));
-  S.matches.forEach(m=>{
+  const ordered=S.matches.slice().sort((a,b)=>(a.fecha-b.fecha)||(String(a.date||'')>String(b.date||'')?1:-1));
+  ordered.forEach(m=>{
     add(pend, m.ourScore, m.rivalScore);
     const rv=team(m.rivalId);
-    if(rv){ let rr=byName(rv.name); if(!rr){ rr={name:rv.name,pj:0,v:0,e:0,d:0,gf:0,gc:0}; rows.push(rr); } add(rr, m.rivalScore, m.ourScore); }
+    if(rv){ let rr=byName(rv.name); if(!rr){ rr={name:rv.name,pj:0,v:0,e:0,d:0,gf:0,gc:0,form:[]}; rows.push(rr); } add(rr, m.rivalScore, m.ourScore); }
   });
   return rows.map(r=>({...r, dg:r.gf-r.gc, pts:r.v*3+r.e}))
     .sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf||a.name.localeCompare(b.name));
@@ -1467,9 +1470,10 @@ function renderTorneo(){
     const mine=s.name.toLowerCase().includes('pendulo');
     const tr=document.createElement('tr'); if(mine)tr.className='mine-hl';
     const q=i<4?'<span style="color:var(--green2)">●</span>':'';
+    const form=s.form.slice(-5).map(r=>`<span class="form-mini form-${r}">${r}</span>`).join('')||'<span style="color:var(--muted)">—</span>';
     tr.innerHTML=`<td><div class="tag-standing">${q}${i+1}</div></td><td><b>${mine?logoTag(22):''}${s.name}</b></td>
       <td>${s.pj}</td><td>${s.v}</td><td>${s.e}</td><td>${s.d}</td><td>${s.gf}</td><td>${s.gc}</td>
-      <td>${s.dg>0?'+':''}${s.dg}</td><td><b style="color:var(--gold-soft)">${s.pts}</b></td>`;
+      <td>${s.dg>0?'+':''}${s.dg}</td><td><b style="color:var(--gold-soft)">${s.pts}</b></td><td style="white-space:nowrap">${form}</td>`;
     tb.appendChild(tr);
   });
   const fx=document.getElementById('fixtureList');
