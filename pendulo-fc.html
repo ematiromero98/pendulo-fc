@@ -462,7 +462,9 @@
    ESTADO + PERSISTENCIA
 ============================================================ */
 const LS_KEY = 'penduloFC_v1';
-const POSITIONS = ['ARQ','DEF','MED','DEL'];
+const POSITIONS = ['ARQ','DEF','VOL','DEL'];
+// pos = principal (manda en el orden y en la lógica de arquero); pos2 = secundaria opcional
+function posLabel(p){ return p.pos + (p.pos2 ? '/'+p.pos2 : ''); }
 
 function seed(){
   return {
@@ -471,18 +473,19 @@ function seed(){
     lineupTeam: 't_pendulo',
     teams: [
       { id:'t_pendulo', name:'PENDULO FC', mine:true, players:[
-        {id:'p10',number:10,name:'Juan Manuel Carrosso',pos:'MED'},
-        {id:'p14',number:14,name:'Federico Alliana',pos:'DEF'},
-        {id:'p7', number:7, name:'Nicolas Lateana',pos:'MED'},
-        {id:'p22',number:22,name:'Matias Romero',pos:'DEL'},
-        {id:'p3', number:3, name:'German Tabares',pos:'DEF'},
-        {id:'p8', number:8, name:'Nicolas Castro',pos:'MED'},
-        {id:'p5', number:5, name:'Daniel Nicolas Carrosso',pos:'DEF'},
-        {id:'p25',number:25,name:'Matias Gagreada',pos:'MED'},
-        {id:'p9', number:9, name:'Nicolas Boschini',pos:'DEL'},
-        {id:'p18',number:18,name:'Facundo Boschini',pos:'DEL'},
-        {id:'p23',number:23,name:'Lucas Digifico',pos:'MED'},
+        {id:'p10',number:10,name:'Juan Manuel Carrosso',pos:'DEF'},                 // Juanchope
+        {id:'p14',number:14,name:'Federico Alliana',pos:'DEF'},                     // Fede
+        {id:'p7', number:7, name:'Nicolas Lateana',pos:'ARQ'},                      // Nico, arquero
+        {id:'p22',number:22,name:'Matias Romero',pos:'DEF',pos2:'VOL'},             // Mati Romero
+        {id:'p3', number:3, name:'German Tabares',pos:'DEF'},                       // German
+        {id:'p8', number:8, name:'Nicolas Castro',pos:'VOL'},
+        {id:'p5', number:5, name:'Daniel Nicolas Carrosso',pos:'DEF',pos2:'VOL'},   // Daniel
+        {id:'p25',number:25,name:'Matias Gagreada',pos:'VOL'},
+        {id:'p9', number:9, name:'Nicolas Boschini',pos:'DEL'},                     // bocha
+        {id:'p18',number:18,name:'Facundo Boschini',pos:'DEF',pos2:'DEL'},          // mini bocha
+        {id:'p23',number:23,name:'Lucas Digifico',pos:'VOL',pos2:'DEL'},            // digi
         {id:'p99',number:99,name:'Sergio Carrosso',pos:'ARQ'},
+        {id:'p2', number:2, name:'Sebastian Pita',pos:'VOL'},                       // Seba (no figura en el sitio oficial)
       ]},
       { id:'t_expreso', name:'EL EXPRESO', mine:false, players:[] },
       { id:'t_7030',    name:'70/30',      mine:false, players:[] },
@@ -491,32 +494,52 @@ function seed(){
       { id:'t_chaja',   name:'CHAJA FC',   mine:false, players:[] },
     ],
     lineups: [],   // {id,teamId,name,positions:[{playerId,x,y}],ts}
-    matches: [ fecha1Match() ],
-    // Base de la tabla: Pendulo y Blue Label en cero porque su Fecha 1 ya es un partido cargado.
+    matches: [ fecha1Match(), fecha2Match() ],
+    // Base de la tabla = SOLO los partidos que Pendulo no juega (los propios se suman solos
+    // desde S.matches en computeStandings). Fechas 1 y 2 segun torneosultimodiez.com.ar.
+    //   F1: 70/30 7-8 Crystal Pajas | Chaja FC 4-8 El Expreso
+    //   F2: 70/30 5-2 Blue Label    | Chaja FC 5-9 Crystal Pajas
     standings: [
-      {name:'El Expreso',    pj:1,v:1,e:0,d:0,gf:8,gc:4},
-      {name:'Crystal Pajas', pj:1,v:1,e:0,d:0,gf:8,gc:7},
-      {name:'Pendulo FC',    pj:0,v:0,e:0,d:0,gf:0,gc:0},
-      {name:'70/30',         pj:1,v:0,e:0,d:1,gf:7,gc:8},
-      {name:'Blue Label',    pj:0,v:0,e:0,d:0,gf:0,gc:0},
-      {name:'Chaja FC',      pj:1,v:0,e:0,d:1,gf:4,gc:8},
+      {name:'Crystal Pajas', pj:2,v:2,e:0,d:0,gf:17,gc:12},
+      {name:'El Expreso',    pj:1,v:1,e:0,d:0,gf:8, gc:4},
+      {name:'70/30',         pj:2,v:1,e:0,d:1,gf:12,gc:10},
+      {name:'Pendulo FC',    pj:0,v:0,e:0,d:0,gf:0, gc:0},
+      {name:'Blue Label',    pj:1,v:0,e:0,d:1,gf:2, gc:5},
+      {name:'Chaja FC',      pj:2,v:0,e:0,d:2,gf:9, gc:17},
     ],
     fixture: [
-      {fecha:1, rival:'BLUE LABEL',  home:true,  time:'FINALIZADA', gf:3, gc:2, done:true},
-      {fecha:2, rival:'EL EXPRESO',  home:false, time:'19:00', done:false},
-      {fecha:3, rival:'CHAJA FC',    home:true,  time:'A confirmar', done:false},
+      {fecha:1, rival:'BLUE LABEL',  home:false, time:'FINALIZADA', gf:3, gc:2, done:true},
+      {fecha:2, rival:'EL EXPRESO',  home:false, time:'FINALIZADA', gf:7, gc:5, done:true},
+      {fecha:3, rival:'CHAJA FC',    home:true,  time:'21:00', done:false},
     ],
-    _v: 1,
+    _v: 2,
   };
 }
-// Partido de la Fecha 1: Pendulo 3-2 Blue Label (2 goles Boschini, 1 Digifico)
+// Fecha 1 — Blue Label 2-3 Pendulo FC (visitante). Goles: N. Boschini x2, Digifico x1.
+// La amarilla de Juan Manuel Carrosso figura en el sitio sin indicar la fecha; queda aca.
 function fecha1Match(){
-  return { id:'m_f1', fecha:1, date:'', rivalId:'t_blue', home:true,
+  return { id:'m_f1', fecha:1, date:'', rivalId:'t_blue', home:false,
     ourScore:3, rivalScore:2,
     events:[
       {id:uid('e'),minute:0,type:'goal',playerId:'p9', assistId:null},
       {id:uid('e'),minute:0,type:'goal',playerId:'p9', assistId:null},
       {id:uid('e'),minute:0,type:'goal',playerId:'p23',assistId:null},
+      {id:uid('e'),minute:0,type:'yellow',playerId:'p10'},
+    ],
+    starters:[], called:[], subs:[], ratings:{}, finished:true };
+}
+// Fecha 2 — El Expreso 5-7 Pendulo FC (visitante). Goles: Digifico x3, F. Boschini x2, D. Carrosso x2.
+function fecha2Match(){
+  return { id:'m_f2', fecha:2, date:'', rivalId:'t_expreso', home:false,
+    ourScore:7, rivalScore:5,
+    events:[
+      {id:uid('e'),minute:0,type:'goal',playerId:'p23',assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p23',assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p23',assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p18',assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p18',assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p5', assistId:null},
+      {id:uid('e'),minute:0,type:'goal',playerId:'p5', assistId:null},
     ],
     starters:[], called:[], subs:[], ratings:{}, finished:true };
 }
@@ -529,6 +552,39 @@ function migrate(d){
     if(!d.matches.some(m=>m.id==='m_f1'||m.fecha===1)) d.matches.push(fecha1Match());
     (d.fixture||[]).forEach(f=>{ if(f.fecha===1 && (!f.rival||f.rival==='—')){ f.rival='BLUE LABEL'; f.home=true; } });
     d._v=1;
+    localStorage.setItem(LS_KEY, JSON.stringify(d));
+  }
+  if(d._v<2){
+    // MED pasa a llamarse VOL en toda la app
+    (d.teams||[]).forEach(t=>(t.players||[]).forEach(p=>{ if(p.pos==='MED')p.pos='VOL'; if(p.pos2==='MED')p.pos2='VOL'; }));
+    // Posiciones reales del plantel de Pendulo (las que paso Matias)
+    const POS_FIX={p10:['DEF'],p14:['DEF'],p7:['ARQ'],p22:['DEF','VOL'],p3:['DEF'],
+                   p5:['DEF','VOL'],p9:['DEL'],p18:['DEF','DEL'],p23:['VOL','DEL']};
+    (d.teams||[]).forEach(t=>(t.players||[]).forEach(p=>{
+      const f=POS_FIX[p.id]; if(f){ p.pos=f[0]; if(f[1])p.pos2=f[1]; else delete p.pos2; } }));
+    // Seba, que no figura en el sitio oficial
+    const mine=(d.teams||[]).find(t=>t.mine);
+    if(mine && !mine.players.some(p=>/pita/i.test(p.name)))
+      mine.players.push({id:'p2',number:2,name:'Sebastian Pita',pos:'VOL'});
+    // Fecha 1 era local por error: en el sitio figura Blue Label 2-3 Pendulo
+    d.matches=d.matches||[];
+    const f1=d.matches.find(m=>m.id==='m_f1'||m.fecha===1);
+    if(f1){ f1.home=false;
+      if(!(f1.events||[]).some(e=>e.type==='yellow'&&e.playerId==='p10'))
+        f1.events.push({id:uid('e'),minute:0,type:'yellow',playerId:'p10'});
+    }
+    if(!d.matches.some(m=>m.id==='m_f2'||m.fecha===2)) d.matches.push(fecha2Match());
+    // Tabla base recalculada con Fechas 1 y 2 (solo partidos ajenos a Pendulo)
+    const BASE={'crystal pajas':[2,2,0,0,17,12],'el expreso':[1,1,0,0,8,4],'70/30':[2,1,0,1,12,10],
+                'pendulo fc':[0,0,0,0,0,0],'blue label':[1,0,0,1,2,5],'chaja fc':[2,0,0,2,9,17]};
+    (d.standings||[]).forEach(s=>{ const b=BASE[s.name.toLowerCase()];
+      if(b) [s.pj,s.v,s.e,s.d,s.gf,s.gc]=b; });
+    (d.fixture||[]).forEach(f=>{
+      if(f.fecha===1){ f.home=false; }
+      if(f.fecha===2){ f.rival='EL EXPRESO'; f.home=false; f.time='FINALIZADA'; f.gf=7; f.gc=5; f.done=true; }
+      if(f.fecha===3){ f.rival='CHAJA FC'; f.home=true; f.time='21:00'; }
+    });
+    d._v=2;
     localStorage.setItem(LS_KEY, JSON.stringify(d));
   }
   return d;
@@ -607,7 +663,7 @@ function renderPlantel(){
     tr.innerHTML=`
       <td><span class="num-badge">${p.number}</span></td>
       <td>${p.photo?`<img class="avatar" src="${p.photo}">`:''}<b>${p.name}</b></td>
-      <td><span class="pill gold">${p.pos}</span></td>
+      <td><span class="pill gold">${posLabel(p)}</span></td>
       <td>${s.pj}</td><td>${s.g}</td><td>${s.a}</td><td>${s.y}</td><td>${s.r}</td>
       <td><button class="btn sm grey" onclick="openPlayerModal('${p.id}')">✎</button>
           <button class="btn sm red" onclick="delPlayer('${p.id}')">🗑</button></td>`;
@@ -632,6 +688,8 @@ function openPlayerModal(pid){
       <div class="field-group"><label>N° camiseta</label><input id="m_num" type="number" value="${p?p.number:''}"></div>
       <div class="field-group"><label>Posición</label>
         <select id="m_pos">${POSITIONS.map(x=>`<option ${p&&p.pos===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field-group"><label>Posición secundaria</label>
+        <select id="m_pos2"><option value="">—</option>${POSITIONS.map(x=>`<option ${p&&p.pos2===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field-group full"><label>Nombre y apellido</label><input id="m_name" value="${p?p.name:''}"></div>
     </div>
     <div class="foot">
@@ -651,9 +709,11 @@ function savePlayer(pid){
   const num=parseInt(document.getElementById('m_num').value)||0;
   const name=document.getElementById('m_name').value.trim();
   const pos=document.getElementById('m_pos').value;
+  let pos2=document.getElementById('m_pos2').value;
+  if(pos2===pos) pos2='';   // no repetir la misma posicion dos veces
   if(!name) return toast('Falta el nombre');
-  if(pid){ const p=t.players.find(x=>x.id===pid); Object.assign(p,{number:num,name,pos,photo:tmpPhoto}); }
-  else t.players.push({id:uid('pl'),number:num,name,pos,photo:tmpPhoto});
+  if(pid){ const p=t.players.find(x=>x.id===pid); Object.assign(p,{number:num,name,pos,pos2,photo:tmpPhoto}); }
+  else t.players.push({id:uid('pl'),number:num,name,pos,pos2,photo:tmpPhoto});
   save(); closeModal(); renderPlantel(); toast('Guardado ✓');
 }
 function delPlayer(pid){
